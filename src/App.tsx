@@ -9,6 +9,7 @@ import { SchemaMapper } from './components/SchemaMapper';
 import { WeightingModule } from './components/WeightingModule';
 import { EstimationEngine } from './components/EstimationEngine';
 import { ValidationDashboard } from './components/ValidationDashboard';
+import { DataChat } from './components/DataChat';
 import { DataParser } from './utils/dataParser';
 import { DataProfiler } from './utils/dataProfiler';
 import { DataCleaner } from './utils/dataCleaner';
@@ -17,7 +18,7 @@ import { DataProfile, DataIssue, QualityMetrics, CleaningAction, CleaningOptions
 import { SurveySchema, ColumnMapping, WeightVariable, ValidationResult } from './types/survey';
 import { Database, Sparkles } from 'lucide-react';
 
-type AppState = 'upload' | 'schema' | 'analysis' | 'weighting' | 'validation' | 'cleaning' | 'estimation' | 'results';
+type AppState = 'upload' | 'schema' | 'analysis' | 'weighting' | 'validation' | 'cleaning' | 'estimation' | 'results' | 'chat';
 
 function App() {
   const [state, setState] = useState<AppState>('upload');
@@ -163,7 +164,7 @@ function App() {
           <div className="max-w-7xl mx-auto">
             <SchemaMapper
               dataColumns={Object.keys(originalData[0] || {})}
-              schema={surveySchema}
+              schema={surveySchema || undefined}
               onMappingComplete={handleMappingComplete}
               onSchemaUpload={handleSchemaUpload}
             />
@@ -204,6 +205,12 @@ function App() {
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
                 Calculate Estimates
+              </button>
+              <button
+                onClick={() => setState('chat')}
+                className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+              >
+                Chat with Data
               </button>
             </div>
             
@@ -343,6 +350,39 @@ function App() {
           </div>
         );
 
+      case 'chat':
+        return (
+          <div className="max-w-7xl mx-auto space-y-8">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Chat with Your Data</h2>
+              <p className="text-lg text-gray-600 mb-8">
+                Ask questions about your dataset and get instant insights
+              </p>
+            </div>
+            
+            <DataChat 
+              data={currentData} 
+              columns={currentColumns} 
+              profile={profile}
+            />
+            
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setState('analysis')}
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Back to Analysis
+              </button>
+              <button
+                onClick={() => setState('estimation')}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Calculate Estimates
+              </button>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -385,7 +425,8 @@ function App() {
                    state === 'validation' ? 'Validating' :
                    state === 'cleaning' ? 'Cleaning' :
                    state === 'estimation' ? 'Estimating' :
-                   state === 'results' ? 'Complete' : 'Processing'}
+                   state === 'results' ? 'Complete' :
+                   state === 'chat' ? 'Chatting' : 'Processing'}
                 </span>
               </div>
             </div>
