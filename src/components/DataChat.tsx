@@ -14,9 +14,11 @@ interface DataChatProps {
   data: any[];
   columns: string[];
   profile?: any;
+  canExecuteCommands?: boolean;
+  onExecuteCommand?: (command: { type: string; params?: Record<string, any> }) => Promise<string | void> | (string | void);
 }
 
-export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _profile }) => {
+export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _profile, canExecuteCommands, onExecuteCommand }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   // Initialize messages when data is available
@@ -272,15 +274,29 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
     setIsLoading(true);
     
     try {
-      const response = await generateResponse(userMessage.content);
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
+      // Try to parse and execute command first if enabled
+      const maybeCommand = parseCommand(userMessage.content);
+      if (canExecuteCommands && maybeCommand && onExecuteCommand) {
+        const execResult = await onExecuteCommand(maybeCommand);
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: typeof execResult === 'string' && execResult.length > 0
+            ? execResult
+            : `✅ Executed command: ${maybeCommand.type}${maybeCommand.params?.column ? ` on ${maybeCommand.params.column}` : ''}. You can ask for a summary or run estimation next.`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        const response = await generateResponse(userMessage.content);
+        const assistantMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: response,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
     } catch (error) {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -304,6 +320,33 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
   const formatMessage = (content: string) => {
     const html = parseMarkdown(content);
     return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  };
+
+  // Basic command parser for demo: supports imputation, duplicates handling, and outlier capping
+  const parseCommand = (text: string): { type: string; params?: Record<string, any> } | null => {
+    const lc = text.toLowerCase();
+    // Imputation
+    const imputeMatch = lc.match(/imput(e|ation)|fill missing|knn imputation|median imputation|mean imputation/);
+    if (imputeMatch) {
+      const method = lc.includes('knn') ? 'median' : lc.includes('median') ? 'median' : lc.includes('mean') ? 'mean' : 'median';
+      // Try to detect a column
+      const onCol = lc.match(/in\s+([a-z0-9_\- ]+)/);
+      const column = onCol ? onCol[1].trim() : undefined;
+      return { type: 'clean_impute', params: { method, column } };
+    }
+    // Duplicates
+    if (lc.includes('remove duplicates') || lc.includes('deduplicate') || lc.includes('drop duplicates')) {
+      return { type: 'clean_duplicates', params: { method: 'remove_first' } };
+    }
+    // Outliers
+    if (lc.includes('winsorize') || lc.includes('cap outliers') || lc.includes('handle outliers')) {
+      return { type: 'clean_outliers', params: { method: 'cap' } };
+    }
+    // Run full cleaning
+    if (lc.includes('clean data') || lc.includes('run cleaning')) {
+      return { type: 'clean_all' };
+    }
+    return null;
   };
 
   return (
