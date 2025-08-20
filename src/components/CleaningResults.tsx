@@ -9,6 +9,13 @@ interface CleaningResultsProps {
   cleanedData: any[];
   onExport: () => void;
   onStartOver: () => void;
+  summaryText?: string;
+  summaryLoading?: boolean;
+  history?: Array<{ id: string; label: string }>;
+  currentIndex?: number;
+  onSelectVersion?: (index: number) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 export const CleaningResults: React.FC<CleaningResultsProps> = ({ 
@@ -16,7 +23,14 @@ export const CleaningResults: React.FC<CleaningResultsProps> = ({
   originalData, 
   cleanedData, 
   onExport,
-  onStartOver 
+  onStartOver,
+  summaryText,
+  summaryLoading,
+  history,
+  currentIndex,
+  onSelectVersion,
+  onUndo,
+  onRedo
 }) => {
   const [activeTab, setActiveTab] = useState<'summary' | 'actions'>('summary');
 
@@ -60,7 +74,22 @@ export const CleaningResults: React.FC<CleaningResultsProps> = ({
               <p className="text-green-100">{actions.length} cleaning actions performed</p>
             </div>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex items-center space-x-3">
+            {history && history.length > 0 && (
+              <div className="hidden md:flex items-center space-x-2 bg-white bg-opacity-20 px-3 py-2 rounded-lg">
+                <button onClick={onUndo} className="text-white/90 hover:text-white">⟲</button>
+                <select
+                  value={currentIndex ?? 0}
+                  onChange={(e) => onSelectVersion && onSelectVersion(parseInt(e.target.value))}
+                  className="bg-transparent text-white text-sm focus:outline-none"
+                >
+                  {history.map((h, i) => (
+                    <option key={h.id} value={i}>{h.label}</option>
+                  ))}
+                </select>
+                <button onClick={onRedo} className="text-white/90 hover:text-white">⟳</button>
+              </div>
+            )}
             <button
               onClick={downloadCSV}
               className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-colors text-white"
@@ -112,6 +141,18 @@ export const CleaningResults: React.FC<CleaningResultsProps> = ({
       </div>
 
       <div className="p-6">
+        {summaryLoading ? (
+          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-2 text-emerald-900 text-sm">
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-600 animate-pulse"></span>
+              Generating summary...
+            </div>
+          </div>
+        ) : summaryText ? (
+          <div className="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg p-4">
+            <div className="text-sm">{summaryText}</div>
+          </div>
+        ) : null}
         {activeTab === 'summary' ? (
           <div className="space-y-6">
             {/* Before/After Comparison */}

@@ -7,12 +7,14 @@ interface EstimationEngineProps {
   data: any[];
   columns: string[];
   weightVariable?: WeightVariable;
+  onEstimatesComputed?: (estimates: SurveyEstimate[]) => void;
 }
 
 export const EstimationEngine: React.FC<EstimationEngineProps> = ({
   data,
   columns,
-  weightVariable
+  weightVariable,
+  onEstimatesComputed
 }) => {
   const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
   const [estimationType, setEstimationType] = useState<'mean' | 'proportion' | 'total'>('mean');
@@ -80,6 +82,9 @@ export const EstimationEngine: React.FC<EstimationEngineProps> = ({
         }
       }
       setEstimates(newEstimates);
+      if (onEstimatesComputed) {
+        onEstimatesComputed(newEstimates);
+      }
     } catch (error) {
       console.error('Error calculating estimates:', error);
       alert('Error calculating estimates. Please check your data and try again.');
