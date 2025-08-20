@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, MessageCircle, Bot, User, Database, Sparkles, BarChart3, Eye } from 'lucide-react';
+import { Send, MessageCircle, Bot, User, Database, BarChart3 } from 'lucide-react';
 
 interface ChatMessage {
   id: string;
   type: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  status?: 'sending' | 'sent' | 'received' | 'error';
   data?: any;
 }
 
@@ -15,7 +16,7 @@ interface DataChatProps {
   profile?: any;
 }
 
-export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) => {
+export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _profile }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   // Initialize messages when data is available
@@ -71,7 +72,7 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
 
   // Helper function to generate column descriptions
   const generateColumnDescriptions = (columns: string[], data: any[]): string => {
-    if (data.length === 0) return columns.map(col => 'N/A').join(', ');
+    if (data.length === 0) return columns.map(() => 'N/A').join(', ');
     
     return columns.map(col => {
       const values = data.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
@@ -185,6 +186,77 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
     }
   };
 
+  // Markdown parser based on provided reference with improvements for lists and code blocks
+  const parseMarkdown = (rawText: string): string => {
+    if (!rawText) return '';
+
+    let text = rawText;
+
+    // Remove reference numbers like [1]
+    text = text.replace(/\[\d+\]/g, '');
+
+    // Extract code blocks first and replace with placeholders to avoid inner parsing
+    const codeBlockMap: Record<string, string> = {};
+    let codeIndex = 0;
+    text = text.replace(/```(\w+)?\n([\s\S]*?)```/g, (_match, lang, code) => {
+      const language = (lang || 'text').toString();
+      const escaped = code
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      const html = `<pre class="bg-gray-900 text-gray-100 rounded-md p-3 overflow-x-auto mb-4"><code class="language-${language}">${escaped}</code></pre>`;
+      const placeholder = `__CODE_BLOCK_${codeIndex++}__`;
+      codeBlockMap[placeholder] = html;
+      return placeholder;
+    });
+
+    // Headings
+    text = text.replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold mb-2">$1<\/h3>');
+    text = text.replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold mb-3">$1<\/h2>');
+    text = text.replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mb-4">$1<\/h1>');
+
+    // Bold and italic
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1<\/strong>');
+    text = text.replace(/\*(.*?)\*/g, '<em class="italic">$1<\/em>');
+
+    // Lists: mark unordered vs ordered items
+    text = text.replace(/^\s*[-*•]\s+(.*$)/gm, '<li class="mb-2 ul-item">$1<\/li>');
+    text = text.replace(/^\s*\d+\.\s+(.*$)/gm, '<li class="mb-2 ol-item">$1<\/li>');
+
+    // Wrap consecutive list items
+    text = text.replace(/(?:<li class=\"mb-2 ul-item\">[\s\S]*?<\/li>\s*)+/g, (match) => {
+      return `<ul class="list-disc pl-6 mb-4">${match}<\/ul>`;
+    });
+    text = text.replace(/(?:<li class=\"mb-2 ol-item\">[\s\S]*?<\/li>\s*)+/g, (match) => {
+      return `<ol class="list-decimal pl-6 mb-4">${match}<\/ol>`;
+    });
+    // Remove helper markers
+    text = text.replace(/\s?ul-item|\s?ol-item/g, '');
+
+    // Paragraphs: wrap lines that are not already block elements
+    const lines = text.split(/\n/);
+    text = lines
+      .map((line) => {
+        const trimmed = line.trim();
+        if (trimmed === '') return '';
+        if (/^<(h[1-6]|ul|ol|li|pre|blockquote|table|p)/.test(trimmed)) {
+          return line;
+        }
+        return `<p class="mb-4 leading-relaxed">${trimmed}<\/p>`;
+      })
+      .join('\n');
+
+    // Clean up empty paragraphs
+    text = text.replace(/<p class=\"mb-4 leading-relaxed\"><\/p>/g, '');
+
+    // Restore code blocks
+    Object.keys(codeBlockMap).forEach((key) => {
+      text = text.replace(new RegExp(key, 'g'), codeBlockMap[key]);
+    });
+
+    return text;
+  };
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
     
@@ -230,41 +302,39 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
   };
 
   const formatMessage = (content: string) => {
-    return content.split('\n').map((line, index) => {
-      if (line.startsWith('• **')) {
-        return <li key={index} className="ml-4" dangerouslySetInnerHTML={{ __html: line.replace('• **', '<strong>').replace('**:', '</strong>:') }} />;
-      }
-      if (line.startsWith('**') && line.includes('**:')) {
-        return <div key={index} className="font-semibold text-gray-800 mt-2" dangerouslySetInnerHTML={{ __html: line.replace('**:', '</strong>:').replace('**', '<strong>') }} />;
-      }
-      if (line.startsWith('**') && line.endsWith('**')) {
-        return <div key={index} className="font-semibold text-gray-800 mt-2" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />;
-      }
-      return <div key={index} className="mb-1">{line}</div>;
-    });
+    const html = parseMarkdown(content);
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
   };
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden h-[600px] flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-4">
+      <div className="bg-gradient-to-r from-sky-600 via-indigo-600 to-purple-600 px-6 py-5 border-b border-white/10">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <MessageCircle className="w-6 h-6 text-white" />
-            <h3 className="text-xl font-bold text-white">Data Chat Assistant</h3>
-            <span className="bg-white bg-opacity-20 px-3 py-1 rounded-full text-sm text-white">
+            <div className="p-2 rounded-lg bg-white/15 backdrop-blur-sm shadow-sm">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg md:text-xl font-semibold text-white tracking-tight">Data Chat Assistant</h3>
+              <p className="text-xs text-white/80">Ask questions, get insights, explore your data</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden sm:inline-flex items-center gap-2 bg-white/15 text-white px-3 py-1.5 rounded-full text-xs shadow-sm">
+              <Database className="w-3.5 h-3.5" />
+              {columns.length} columns
+            </span>
+            <span className="inline-flex items-center gap-2 bg-white/15 text-white px-3 py-1.5 rounded-full text-xs shadow-sm">
+              <BarChart3 className="w-3.5 h-3.5" />
               {data.length.toLocaleString()} rows
             </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Database className="w-4 h-4 text-white" />
-            <span className="text-sm text-white">{columns.length} columns</span>
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 bg-chat-surface">
         {data.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-500">
@@ -278,31 +348,34 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} fade-in-up`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                  className={`max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 shadow-md ${
                     message.type === 'user'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-900 shadow-sm border border-gray-200'
+                      ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-blue-200/50'
+                      : 'bg-white/90 backdrop-blur border border-gray-200 text-gray-900'
                   }`}
                 >
                   <div className="flex items-start space-x-2">
                     {message.type === 'assistant' && (
-                      <Bot className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                      <Bot className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
                     )}
                     <div className="flex-1">
-                      <div className="text-sm">
+                      <div className="text-sm leading-relaxed">
                         {formatMessage(message.content)}
                       </div>
-                      <div className={`text-xs mt-2 ${
-                        message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
+                      <div className={`text-[11px] mt-2 flex items-center gap-2 ${
+                        message.type === 'user' ? 'text-blue-100/90' : 'text-gray-500'
                       }`}>
-                        {message.timestamp.toLocaleTimeString()}
+                        <span>{message.timestamp.toLocaleTimeString()}</span>
+                        {message.type === 'user' && (
+                          <span className="opacity-80">· {message.status || 'sent'}</span>
+                        )}
                       </div>
                     </div>
                     {message.type === 'user' && (
-                      <User className="w-5 h-5 text-blue-100 mt-0.5 flex-shrink-0" />
+                      <User className="w-5 h-5 text-white mt-0.5 flex-shrink-0" />
                     )}
                   </div>
                 </div>
@@ -310,14 +383,15 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
             ))}
             
             {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white text-gray-900 shadow-sm border border-gray-200 rounded-lg px-4 py-3">
-                  <div className="flex items-center space-x-2">
-                    <Bot className="w-5 h-5 text-purple-600" />
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              <div className="flex justify-start fade-in-up">
+                <div className="bg-white/95 backdrop-blur border border-gray-200 rounded-2xl px-4 py-3 shadow-md">
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Bot className="w-5 h-5 text-indigo-600" />
+                    <span className="text-xs">Assistant is typing</span>
+                    <div className="typing">
+                      <span className="typing-dot"></span>
+                      <span className="typing-dot"></span>
+                      <span className="typing-dot"></span>
                     </div>
                   </div>
                 </div>
@@ -330,15 +404,15 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 p-4 bg-white">
-        <div className="flex space-x-3">
+      <div className="border-t border-gray-200 p-4 md:p-5 bg-white/90 backdrop-blur sticky bottom-0">
+        <div className="flex gap-3">
           <div className="flex-1 relative">
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={data.length === 0 ? "Upload a dataset first..." : "Ask me anything about your dataset..."}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 rounded-2xl border border-gray-200 shadow-sm bg-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:shadow-md transition"
               rows={1}
               disabled={isLoading || data.length === 0}
             />
@@ -346,7 +420,7 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile }) =>
           <button
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading || data.length === 0}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className="px-5 md:px-6 py-3 rounded-2xl text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition"
           >
             <Send className="w-4 h-4" />
             <span>Send</span>
