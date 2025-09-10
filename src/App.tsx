@@ -97,6 +97,38 @@ function App() {
     }
   };
 
+  const handleDataImported = async (data: any[], filename: string) => {
+    setIsLoading(true);
+    setError(null);
+    setFileName(filename);
+    
+    try {
+      if (data.length === 0) {
+        throw new Error('The imported data appears to be empty');
+      }
+
+      setOriginalData(data);
+      
+      // Profile the data
+      const dataProfile = DataProfiler.profileDataset(data);
+      setProfile(dataProfile);
+      
+      // Detect issues
+      const detectedIssues = DataProfiler.detectIssues(data, dataProfile);
+      setIssues(detectedIssues);
+      
+      // Calculate quality metrics
+      const qualityMetrics = DataProfiler.calculateQualityMetrics(data, dataProfile);
+      setMetrics(qualityMetrics);
+      
+      setState('analysis');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process imported data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSchemaUpload = (schema: SurveySchema) => {
     setSurveySchema(schema);
   };
@@ -255,7 +287,11 @@ function App() {
       case 'upload':
         return (
           <div className="max-w-4xl mx-auto">
-            <FileUpload onFileUpload={handleFileUpload} isLoading={isLoading} />
+            <FileUpload 
+              onFileUpload={handleFileUpload} 
+              onDataImported={handleDataImported}
+              isLoading={isLoading} 
+            />
             {error && (
               <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2">

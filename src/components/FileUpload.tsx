@@ -1,12 +1,14 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { SupabaseImport } from './SupabaseImport';
 
 interface FileUploadProps {
   onFileUpload: (file: File) => void;
+  onDataImported?: (data: any[], filename: string) => void;
   isLoading: boolean;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isLoading }) => {
+export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, onDataImported, isLoading }) => {
   const [dragOver, setDragOver] = useState(false);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -26,8 +28,21 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isLoading 
     }
   };
 
+  const handleSupabaseImport = (data: any[], filename: string) => {
+    if (onDataImported) {
+      onDataImported(data, filename);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8">
+    <div className="space-y-6">
+      {/* Supabase Import Section */}
+      {onDataImported && (
+        <SupabaseImport onDataImported={handleSupabaseImport} />
+      )}
+      
+      {/* File Upload Section */}
+      <div className="bg-white rounded-xl shadow-lg p-8">
       <div className="text-center mb-6">
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
           <FileText className="w-8 h-8 text-white" />
@@ -99,6 +114,8 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isLoading 
           </p>
         </div>
       </div>
+      </div>
+    </div>
     </div>
   );
 };
