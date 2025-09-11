@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Database, Download, Upload, AlertCircle, CheckCircle } from 'lucide-react';
-import { fetchTableData, convertToCSV, downloadCSV, availableTables, SupabaseTable } from '../utils/supabaseClient';
+import { convertToCSV, downloadCSV, availableTables, hasSupabaseConfig } from '../utils/supabaseClient';
 
 interface SupabaseImportProps {
   onDataImported: (data: any[], filename: string) => void;
@@ -13,6 +13,10 @@ export const SupabaseImport: React.FC<SupabaseImportProps> = ({ onDataImported }
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleImportData = async () => {
+    if (!hasSupabaseConfig) {
+      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+      return;
+    }
     if (!selectedTable) {
       setError('Please select a table to import');
       return;
@@ -23,6 +27,7 @@ export const SupabaseImport: React.FC<SupabaseImportProps> = ({ onDataImported }
     setSuccess(null);
 
     try {
+      const { fetchTableData } = await import('../utils/supabaseClient');
       const data = await fetchTableData(selectedTable);
       
       if (data.length === 0) {
@@ -61,6 +66,10 @@ export const SupabaseImport: React.FC<SupabaseImportProps> = ({ onDataImported }
   };
 
   const handleDownloadCSV = async () => {
+    if (!hasSupabaseConfig) {
+      setError('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+      return;
+    }
     if (!selectedTable) {
       setError('Please select a table to download');
       return;
@@ -70,6 +79,7 @@ export const SupabaseImport: React.FC<SupabaseImportProps> = ({ onDataImported }
     setError(null);
 
     try {
+      const { fetchTableData } = await import('../utils/supabaseClient');
       const data = await fetchTableData(selectedTable);
       
       if (data.length === 0) {
