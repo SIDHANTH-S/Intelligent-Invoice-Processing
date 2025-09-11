@@ -116,6 +116,5 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, onDataImpo
       </div>
       </div>
     </div>
-    </div>
   );
 };
