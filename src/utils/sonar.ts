@@ -32,12 +32,7 @@ export interface CleaningSummaryContext {
 	}>;
 }
 
-function getEnv(key: string, fallback?: string): string | undefined {
-	// Vite exposes env on import.meta.env
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const env = (import.meta as any).env || {};
-	return env[key] ?? fallback;
-}
+// getEnv reserved for future use
 
 export async function generateCleaningSummaryViaSonar(context: CleaningSummaryContext): Promise<string> {
 	const apiKey = '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';
@@ -127,6 +122,164 @@ function summarizeActions(actions: CleaningSummaryContext['actions']): string {
 	const counts: Record<string, number> = {};
 	actions.forEach(a => { counts[a.type] = (counts[a.type] || 0) + 1; });
 	return Object.entries(counts).map(([t, n]) => `${t}: ${n}`).join(', ');
+}
+
+// ===== Invoice Structuring via Sonar =====
+export interface InvoiceStructuredItem {
+    productId?: string;
+    name?: string;
+    quantity?: number;
+    rate?: number;
+    gst?: number;
+    total?: number;
+}
+
+export interface InvoiceStructured {
+    companyName: string;
+    address: string;
+    gstNumber: string;
+    date: string; // ISO 8601 or dd/mm/yyyy if unknown
+    invoiceNumber: string;
+    customerId?: string;
+    items: InvoiceStructuredItem[];
+    subtotal: number;
+    taxes: number;
+    grandTotal: number;
+    comments?: string;
+    signatures?: string[];
+}
+
+export async function structureInvoiceViaSonar(ocrJson: unknown): Promise<InvoiceStructured> {
+    const apiKey = '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';
+    const model = 'sonar';
+
+    const systemPrompt = [
+        'You are an expert invoice information extraction and normalization system.',
+        'INPUT: OCR JSON with fields full_text and detections (Hindi/English). OCR may be noisy: words may be jumbled, duplicated, split, or out of order; numerals may be in Hindi; punctuation may be missing; lines may be wrapped incorrectly.',
+        'GOAL: Produce a robust, semantically-correct invoice record using schema below. Use semantic analysis and domain knowledge to infer fields even if tokens are out of order. Prefer consistency and correctness over literal surface form.',
+        'PREPROCESSING:',
+        '- Normalize whitespace and punctuation. Remove repeated filler tokens (e.g., "लोगो", decorative words).',
+        '- Normalize Unicode digits: map Hindi/Devanagari numerals to Western digits.',
+        '- Merge fragmented tokens (e.g., split GST numbers) and correct common OCR glyph confusions (0/O, 1/I/l, 5/S, 2/Z) using context.',
+        '- Join logically related fragments into coherent lines (e.g., company header, address lines).',
+        'SEMANTIC MAPPING:',
+        '- Recognize Hindi synonyms for labels: GST/GSTIN/जीएसटी नंबर, चालान/Invoice, दिनांक/Date, ग्राहक/Customer, मात्रा/Qty, दर/Rate, कुल/Total.',
+        '- Recognize patterns: GSTIN (15 chars), dates (dd/mm/yyyy or mm/dd/yyyy), currency amounts, item rows with name, quantity, rate, GST, total.',
+        'REASONING:',
+        '- If multiple candidates exist, choose the one with highest semantic plausibility and numeric consistency (e.g., subtotal ≈ sum(items.total)).',
+        '- Use item totals and taxes to reconcile grand total. If mismatch is small (<1%), snap to consistent values.',
+        'OUTPUT SCHEMA (JSON only):',
+        '{',
+        '  "companyName": string,',
+        '  "address": string,',
+        '  "gstNumber": string,',
+        '  "date": string,               // preferred ISO or dd/mm/yyyy',
+        '  "invoiceNumber": string,',
+        '  "customerId": string,',
+        '  "items": [ { "productId": string, "name": string, "quantity": number, "rate": number, "gst": number, "total": number } ],',
+        '  "subtotal": number,',
+        '  "taxes": number,',
+        '  "grandTotal": number,',
+        '  "comments": string,',
+        '  "signatures": [string]',
+        '}',
+        'IMPUTATION & CONSISTENCY RULES:',
+        '- Missing string → "N/A" IF invoice number is missing place any standard random invoice number; missing number → 0; missing date → today dd/mm/yyyy.',
+        '- If totals missing: subtotal = sum(items.total), taxes = 0 if absent, grandTotal = subtotal + taxes.',
+        '- If totals exist but inconsistent with items by <1%, adjust subtotal and/or grandTotal to be consistent.',
+        'CONSTRAINTS:',
+        '- Respond with valid JSON only. No markdown. No explanations.',
+        '- Always output Western digits for numbers.'
+    ].join('\n');
+
+    const userContent = typeof ocrJson === 'string' ? ocrJson : JSON.stringify(ocrJson);
+
+    const body = {
+        model,
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent }
+        ],
+        max_tokens: 1200,
+        temperature: 0.1
+    };
+
+    try {
+        const response = await fetch('https://api.perplexity.ai/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error('Sonar error');
+        const result = await response.json();
+        const content = result?.choices?.[0]?.message?.content as string;
+        const parsed = JSON.parse(content);
+
+        // Defensive imputation in case the model omits fields
+        const items = Array.isArray(parsed.items) ? parsed.items : [];
+        const subtotal = (typeof parsed.subtotal === 'number' ? parsed.subtotal : items.reduce((s: number, it: any) => s + (Number(it.total) || 0), 0));
+        const taxes = typeof parsed.taxes === 'number' ? parsed.taxes : 0;
+        let grandTotal = typeof parsed.grandTotal === 'number' ? parsed.grandTotal : (subtotal + taxes);
+        // Reconcile totals if slightly inconsistent (<1%)
+        const sumItems = items.reduce((s: number, it: any) => s + (Number(it.total) || 0), 0);
+        const expectedGrand = sumItems + taxes;
+        if (expectedGrand > 0) {
+            const diff = Math.abs(expectedGrand - grandTotal);
+            const rel = diff / expectedGrand;
+            if (rel < 0.01) {
+                grandTotal = expectedGrand;
+            }
+        }
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(today.getFullYear());
+
+        return {
+            companyName: parsed.companyName || 'N/A',
+            address: parsed.address || 'N/A',
+            gstNumber: parsed.gstNumber || 'N/A',
+            date: parsed.date || `${dd}/${mm}/${yyyy}`,
+            invoiceNumber: parsed.invoiceNumber || 'N/A',
+            customerId: parsed.customerId || 'N/A',
+            items: items.map((it: any) => ({
+                productId: it.productId || 'N/A',
+                name: it.name || 'N/A',
+                quantity: Number(it.quantity) || 0,
+                rate: Number(it.rate) || 0,
+                gst: Number(it.gst) || 0,
+                total: Number(it.total) || 0
+            })),
+            subtotal,
+            taxes,
+            grandTotal,
+            comments: parsed.comments || '',
+            signatures: Array.isArray(parsed.signatures) ? parsed.signatures : []
+        } as InvoiceStructured;
+    } catch {
+        // Fallback minimal structure
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(today.getFullYear());
+        return {
+            companyName: 'N/A',
+            address: 'N/A',
+            gstNumber: 'N/A',
+            date: `${dd}/${mm}/${yyyy}`,
+            invoiceNumber: 'N/A',
+            customerId: 'N/A',
+            items: [],
+            subtotal: 0,
+            taxes: 0,
+            grandTotal: 0,
+            comments: '',
+            signatures: []
+        };
+    }
 }
 
 
