@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, MessageCircle, Bot, User, Database, BarChart3, Image as ImageIcon, Mic, MicOff, Printer } from 'lucide-react';
+import { Send, MessageCircle, Bot, User, Database, BarChart3, Image as ImageIcon, Mic, MicOff, Printer, Upload } from 'lucide-react';
 import { structureInvoiceViaSonar } from '../utils/sonar';
+import { InvoiceImport } from './InvoiceImport';
+import { hasSupabaseConfig } from '../utils/supabaseClient';
 
 interface ChatMessage {
   id: string;
   type: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
   timestamp: Date;
   status?: 'sending' | 'sent' | 'received' | 'error';
   data?: any;
@@ -22,8 +25,8 @@ interface DataChatProps {
 export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _profile, canExecuteCommands, onExecuteCommand }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isListening, setIsListening] = useState(false);
-  const [invoice, setInvoice] = useState<InvoiceData | null>(null);
-  const [showInvoice, setShowInvoice] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState<InvoiceData | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Initialize messages when data is available
   useEffect(() => {
@@ -196,6 +199,19 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
   const handleImageUpload = async (file: File) => {
     try {
       setIsLoading(true);
+      
+      // Create image preview URL for user message
+      const imageUrl = URL.createObjectURL(file);
+      
+      // Add user message with image preview
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        type: 'user',
+        content: 'Uploaded invoice image for processing',
+        imageUrl: imageUrl,
+        timestamp: new Date()
+      }]);
+      
       const form = new FormData();
       form.append('image', file);
       const res = await fetch('https://sidhu07-hindi-ocr-api.hf.space/ocr', {
@@ -226,19 +242,20 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
           raw: json
         } as any;
       } catch {}
-      setInvoice(inv);
-      setShowInvoice(true);
+      
+      // Add invoice as a message with data field
       setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+        id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `🧾 OCR processed. Parsed invoice for ${inv.companyName || 'unknown company'}. Click Print to download.`,
-        timestamp: new Date()
+        content: `🧾 Invoice processed for **${inv.companyName || 'unknown company'}**. You can print or import it to the database.`,
+        timestamp: new Date(),
+        data: inv // Store invoice in message data
       }]);
     } catch (e:any) {
       setMessages(prev => [...prev, {
         id: (Date.now()+1).toString(),
         type: 'assistant',
-        content: `OCR Error: ${e?.message || 'Failed to process image.'}`,
+        content: `❌ OCR Error: ${e?.message || 'Failed to process image.'}`,
         timestamp: new Date()
       }]);
     } finally {
@@ -622,9 +639,145 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
                       <Bot className="w-5 h-5 text-indigo-600 mt-0.5 flex-shrink-0" />
                     )}
                     <div className="flex-1">
+                      {message.imageUrl && (
+                        <img 
+                          src={message.imageUrl} 
+                          alt="Uploaded invoice" 
+                          className="max-w-full h-auto rounded-lg mb-2 border border-white/20"
+                          style={{ maxHeight: '300px' }}
+                        />
+                      )}
                       <div className="text-sm leading-relaxed">
                         {formatMessage(message.content)}
                       </div>
+                      
+                      {/* Render invoice preview inline if message has invoice data */}
+                      {message.data && (
+                        <div className="mt-3 border border-gray-200 rounded-lg p-3 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                              <div className="text-xs font-medium text-gray-700">Invoice Preview</div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {hasSupabaseConfig && (
+                                <button
+                                  onClick={() => {
+                                    setActiveInvoice(message.data as InvoiceData);
+                                    setShowImportModal(true);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-blue-500 bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm text-xs"
+                                  title="Import to Database"
+                                >
+                                  <Upload className="w-3 h-3" />
+                                  <span className="font-medium">Import</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const inv = message.data as InvoiceData;
+                                  const w = window.open('', '_blank');
+                                  if (!w) return;
+                                  w.document.write(`<!DOCTYPE html><html><head><title>Invoice</title><style>
+                                    body{font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;padding:24px;color:#111}
+                                    h1{font-size:20px;margin:0}
+                                    h2{font-size:16px;margin:16px 0 8px}
+                                    table{width:100%;border-collapse:collapse;margin-top:12px}
+                                    th,td{border:1px solid #ddd;padding:8px;font-size:12px}
+                                    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+                                  </style></head><body>`);
+                                  w.document.write(`<h1>${inv.companyName || ''}</h1>`);
+                                  w.document.write(`<div>${inv.address || ''}</div>`);
+                                  w.document.write(`<div class="grid">
+                                    <div><strong>GST:</strong> ${inv.gstNumber || ''}</div>
+                                    <div><strong>Date:</strong> ${inv.date || ''}</div>
+                                    <div><strong>Invoice #:</strong> ${inv.invoiceNumber || ''}</div>
+                                    <div><strong>Customer ID:</strong> ${inv.customerId || ''}</div>
+                                  </div>`);
+                                  w.document.write(`<h2>Items</h2>`);
+                                  w.document.write(`<table><thead><tr>
+                                    <th>Product ID</th><th>Name</th><th>Qty</th><th>Rate</th><th>GST</th><th>Total</th>
+                                  </tr></thead><tbody>`);
+                                  (inv.items || []).forEach((it: InvoiceItem) => {
+                                    w.document.write(`<tr>
+                                      <td>${it.productId || ''}</td>
+                                      <td>${it.name || ''}</td>
+                                      <td>${it.quantity ?? ''}</td>
+                                      <td>${it.rate ?? ''}</td>
+                                      <td>${it.gst ?? ''}</td>
+                                      <td>${it.total ?? ''}</td>
+                                    </tr>`);
+                                  });
+                                  w.document.write(`</tbody></table>`);
+                                  w.document.write(`<div class="grid">
+                                    <div><strong>Subtotal:</strong> ${inv.subtotal ?? ''}</div>
+                                    <div><strong>Taxes:</strong> ${inv.taxes ?? ''}</div>
+                                    <div><strong>Grand Total:</strong> ${inv.grandTotal ?? ''}</div>
+                                  </div>`);
+                                  if (inv.comments) w.document.write(`<h2>Comments</h2><div>${inv.comments}</div>`);
+                                  w.document.write(`<script>window.print();</script></body></html>`);
+                                  w.document.close();
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition shadow-sm text-xs"
+                              >
+                                <Printer className="w-3 h-3" />
+                                <span className="font-medium">Print</span>
+                              </button>
+                            </div>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm text-xs max-h-[350px] overflow-y-auto">
+                            <div className="font-semibold text-base mb-1">{(message.data as InvoiceData).companyName}</div>
+                            <div className="text-gray-600 mb-2 text-xs">{(message.data as InvoiceData).address}</div>
+                            <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                              <div><span className="font-medium">GST:</span> {(message.data as InvoiceData).gstNumber}</div>
+                              <div><span className="font-medium">Date:</span> {(message.data as InvoiceData).date}</div>
+                              <div><span className="font-medium">Invoice #:</span> {(message.data as InvoiceData).invoiceNumber}</div>
+                              <div><span className="font-medium">Customer ID:</span> {(message.data as InvoiceData).customerId}</div>
+                            </div>
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+                                <thead>
+                                  <tr className="bg-gray-100">
+                                    <th className="text-left p-2 border-b">Product</th>
+                                    <th className="text-left p-2 border-b">Name</th>
+                                    <th className="text-right p-2 border-b">Qty</th>
+                                    <th className="text-right p-2 border-b">Rate</th>
+                                    <th className="text-right p-2 border-b">GST</th>
+                                    <th className="text-right p-2 border-b">Total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {((message.data as InvoiceData).items || []).map((it, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                      <td className="p-2 border-b">{it.productId || '-'}</td>
+                                      <td className="p-2 border-b">{it.name}</td>
+                                      <td className="p-2 border-b text-right">{it.quantity}</td>
+                                      <td className="p-2 border-b text-right">{it.rate}</td>
+                                      <td className="p-2 border-b text-right">{it.gst || 0}</td>
+                                      <td className="p-2 border-b text-right font-medium">{it.total}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div className="mt-3 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="font-medium">Subtotal:</span>
+                                <span>{(message.data as InvoiceData).subtotal}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="font-medium">Taxes:</span>
+                                <span>{(message.data as InvoiceData).taxes}</span>
+                              </div>
+                              <div className="flex justify-between pt-2 border-t-2 border-gray-300 text-sm">
+                                <span className="font-bold">Grand Total:</span>
+                                <span className="font-bold text-blue-600">{(message.data as InvoiceData).grandTotal}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className={`text-[11px] mt-2 flex items-center gap-2 ${
                         message.type === 'user' ? 'text-blue-100/90' : 'text-gray-500'
                       }`}>
@@ -663,107 +816,8 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Invoice Preview */}
-      {showInvoice && invoice && (
-        <div className="border-t border-gray-200 p-4 bg-white/90">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-sm text-gray-600">Invoice Preview</div>
-            <button
-              onClick={() => {
-                const w = window.open('', '_blank');
-                if (!w) return;
-                w.document.write(`<!DOCTYPE html><html><head><title>Invoice</title><style>
-                  body{font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;padding:24px;color:#111}
-                  h1{font-size:20px;margin:0}
-                  h2{font-size:16px;margin:16px 0 8px}
-                  table{width:100%;border-collapse:collapse;margin-top:12px}
-                  th,td{border:1px solid #ddd;padding:8px;font-size:12px}
-                  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
-                </style></head><body>`);
-                w.document.write(`<h1>${invoice.companyName || ''}</h1>`);
-                w.document.write(`<div>${invoice.address || ''}</div>`);
-                w.document.write(`<div class="grid">
-                  <div><strong>GST:</strong> ${invoice.gstNumber || ''}</div>
-                  <div><strong>Date:</strong> ${invoice.date || ''}</div>
-                  <div><strong>Invoice #:</strong> ${invoice.invoiceNumber || ''}</div>
-                  <div><strong>Customer ID:</strong> ${invoice.customerId || ''}</div>
-                </div>`);
-                w.document.write(`<h2>Items</h2>`);
-                w.document.write(`<table><thead><tr>
-                  <th>Product ID</th><th>Name</th><th>Qty</th><th>Rate</th><th>GST</th><th>Total</th>
-                </tr></thead><tbody>`);
-                (invoice.items || []).forEach(it => {
-                  w.document.write(`<tr>
-                    <td>${it.productId || ''}</td>
-                    <td>${it.name || ''}</td>
-                    <td>${it.quantity ?? ''}</td>
-                    <td>${it.rate ?? ''}</td>
-                    <td>${it.gst ?? ''}</td>
-                    <td>${it.total ?? ''}</td>
-                  </tr>`);
-                });
-                w.document.write(`</tbody></table>`);
-                w.document.write(`<div class="grid">
-                  <div><strong>Subtotal:</strong> ${invoice.subtotal ?? ''}</div>
-                  <div><strong>Taxes:</strong> ${invoice.taxes ?? ''}</div>
-                  <div><strong>Grand Total:</strong> ${invoice.grandTotal ?? ''}</div>
-                </div>`);
-                if (invoice.comments) w.document.write(`<h2>Comments</h2><div>${invoice.comments}</div>`);
-                w.document.write(`<script>window.print();</script></body></html>`);
-                w.document.close();
-              }}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-            >
-              <Printer className="w-4 h-4" />
-              <span className="text-sm">Print</span>
-            </button>
-          </div>
-          <div className="text-sm">
-            <div className="font-semibold">{invoice.companyName}</div>
-            <div className="text-gray-600">{invoice.address}</div>
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              <div>GST: {invoice.gstNumber}</div>
-              <div>Date: {invoice.date}</div>
-              <div>Invoice #: {invoice.invoiceNumber}</div>
-              <div>Customer ID: {invoice.customerId}</div>
-            </div>
-            <div className="overflow-x-auto mt-3">
-              <table className="min-w-full text-xs">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="text-left p-2 border">Product ID</th>
-                    <th className="text-left p-2 border">Name</th>
-                    <th className="text-right p-2 border">Qty</th>
-                    <th className="text-right p-2 border">Rate</th>
-                    <th className="text-right p-2 border">GST</th>
-                    <th className="text-right p-2 border">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(invoice.items || []).map((it, idx) => (
-                    <tr key={idx}>
-                      <td className="p-2 border">{it.productId}</td>
-                      <td className="p-2 border">{it.name}</td>
-                      <td className="p-2 border text-right">{it.quantity}</td>
-                      <td className="p-2 border text-right">{it.rate}</td>
-                      <td className="p-2 border text-right">{it.gst}</td>
-                      <td className="p-2 border text-right">{it.total}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <div>Subtotal: {invoice.subtotal}</div>
-              <div>Taxes: {invoice.taxes}</div>
-              <div>Grand Total: {invoice.grandTotal}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="border-t border-gray-200 p-4 md:p-5 bg-white/90 backdrop-blur sticky bottom-0">
+      {/* Input - Remove sticky positioning */}
+      <div className="border-t border-gray-200 p-4 md:p-5 bg-white/90 backdrop-blur">
         <div className="flex gap-3 items-end">
           {/* Left: Image Upload */}
           <div>
@@ -812,6 +866,27 @@ export const DataChat: React.FC<DataChatProps> = ({ data, columns, profile: _pro
           Press Enter to send, Shift+Enter for new line
         </div>
       </div>
+
+      {/* Import Modal */}
+      {showImportModal && activeInvoice && (
+        <InvoiceImport
+          invoice={activeInvoice}
+          onClose={() => {
+            setShowImportModal(false);
+            setActiveInvoice(null);
+          }}
+          onSuccess={() => {
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              type: 'assistant',
+              content: '✅ Invoice successfully imported to Supabase database!',
+              timestamp: new Date()
+            }]);
+            setShowImportModal(false);
+            setActiveInvoice(null);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -22,6 +22,11 @@ export const availableTables: SupabaseTable[] = [
     description: 'Customer data with revenue, profit, and segment information'
   },
   {
+    name: 'products',
+    label: 'Products',
+    description: 'Product catalog with names, prices, and inventory'
+  },
+  {
     name: 'bills',
     label: 'Bills',
     description: 'Billing data with amounts, dates, and status'
@@ -30,10 +35,19 @@ export const availableTables: SupabaseTable[] = [
     name: 'bill_items',
     label: 'Bill Items',
     description: 'Individual items within bills with quantities and rates'
+  },
+  {
+    name: 'expenses',
+    label: 'Expenses',
+    description: 'Business expenses with categories, amounts, and dates'
   }
 ];
 
 export async function fetchTableData(tableName: string): Promise<any[]> {
+  if (!supabase) {
+    throw new Error('Supabase client is not configured');
+  }
+  
   const { data, error } = await supabase
     .from(tableName)
     .select('*')
