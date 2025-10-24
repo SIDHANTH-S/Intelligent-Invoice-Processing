@@ -1,229 +1,110 @@
-# Data Quality Analyzer and Cleaner
+# VartalapAI - Business Intelligence Dashboard
 
-A comprehensive survey data analysis platform with advanced statistical estimation, AI-powered data exploration, schema mapping, weighting, validation, and professional reporting capabilities.
+**Live URL**: https://vartalapai.netlify.app
+
+## Overview
+
+VartalapAI is a comprehensive business intelligence platform for managing bills, inventory, customers, and analytics with AI-powered insights. Built with React, TypeScript, and Supabase.
 
 ## Features
 
-### 🔄 **Data Processing Pipeline**
-- **Multi-Format Upload**: CSV, XLSX, XLS support with drag-and-drop interface (up to 50MB)
-- **File Validation**: Size limits, format checking, comprehensive error handling
-- **Progress Tracking**: Real-time upload and processing progress indicators
-- **Error Recovery**: Graceful error handling with detailed user feedback
+### 📊 Core Modules
+- **Dashboard** - Real-time business metrics and KPIs
+- **Bill Generator** - Create and manage customer bills
+- **Products Management** - Inventory tracking and stock control
+- **Customer Profitability** - Analyze customer value and segments
+- **Expense Tracking** - Monitor expenses and profit/loss
+- **📖 Ledger** - Complete financial transaction history (NEW!)
+- **Advanced Analytics** - Churn prediction and anomaly detection
+- **Sales Forecasting** - Predict future sales trends
+- **Statement Generator** - Customer account statements
 
-### 🔍 **Advanced Data Profiling & Analysis**
-- **Column Profiling**: Data types, completeness, uniqueness, statistical summaries
-- **Missing Value Analysis**: Pattern detection with severity assessment
-- **Duplicate Detection**: Exact and near-duplicate identification
-- **Outlier Detection**: IQR and Z-score statistical methods
-- **Data Type Inference**: Automatic type detection with confidence scoring
-- **Correlation Analysis**: Variable correlation detection and reporting
-- **Quality Metrics**: Overall score, completeness, validity, consistency, uniqueness
+### ✨ Ledger Features
+- Combined view of all income (bills) and expenses
+- Running balance calculation
+- Advanced filtering (search, type, date range)
+- CSV export functionality
+- Real-time updates from database
+- Visual indicators for income/expense
+- Summary cards (Total Income, Expenses, Net Balance)
 
-### 🧹 **Intelligent Data Cleaning Engine**
-- **Missing Value Imputation**: Mean, median, mode, forward/backward fill strategies
-- **Duplicate Removal**: Configurable logic (keep first/last, remove all)
-- **Outlier Treatment**: Capping, removal, winsorization options
-- **Text Standardization**: Whitespace, case, format normalization
-- **Data Type Conversion**: Automatic type conversion with validation
-- **Configurable Rules**: User-defined cleaning parameters
-- **Batch Processing**: Non-blocking cleaning operations
+See [LEDGER_DOCUMENTATION.md](./LEDGER_DOCUMENTATION.md) for detailed ledger usage.
 
-### 🗺️ **Schema Mapping System**
-- **Visual Mapping Interface**: Drag-and-drop column mapping with react-beautiful-dnd
-- **Intelligent Suggestions**: Auto-mapping with confidence scores using similarity algorithms
-- **JSON Schema Support**: Import/export schema configurations
-- **Sample Schema Generation**: Pre-built schema examples and templates
-- **Mapping Validation**: Conflict detection and resolution
-- **Field Transformation**: Type conversion and data transformation during mapping
+## Project info
 
-### ⚖️ **Survey Weighting Module**
-- **Design Weights**: Unequal selection probability adjustment
-- **Post-Stratification**: Population alignment weighting
-- **Raking Weights**: Multi-variable margin adjustment with iterative algorithms
-- **Weight Statistics**: Distribution analysis, validation, and quality checks
-- **Weight Validation**: Variability warnings and recommendations
-- **Normalization Options**: Weight scaling, trimming, and advanced configuration
+**URL**: (project URL or remove this line)
 
-### 📊 **Professional Statistical Estimation Engine**
-- **Weighted Calculations**: Means, totals, proportions with proper survey methodology
-- **Confidence Intervals**: 90%, 95%, 99% confidence levels with proper statistical theory
-- **Margin of Error**: Accurate MoE computation for survey estimates
-- **Design Effect**: Complex design impact assessment and reporting
-- **Variance Estimation**: Taylor linearization, Bootstrap, Jackknife methods
-- **Finite Population Correction**: Population size adjustment for accuracy
-- **Effective Sample Size**: Proper sample size calculations accounting for design effects
+## How can I edit this code?
 
-### ✅ **Advanced Validation & Quality Control**
-- **Rule-Based Validation**: Flexible validation rule system with custom rule builder
-- **Skip Pattern Validation**: Survey logic validation (e.g., "If Q1=No, Q2 should be blank")
-- **Range Checks**: Numeric and date range validation with flexible conditions
-- **Format Validation**: Email, phone, custom regex pattern validation
-- **Custom Rule Builder**: Visual interface for non-technical users
-- **Violation Reporting**: Comprehensive validation results with severity classification
-- **Auto-Generated Rules**: Common validation rules based on data types
+There are several ways of editing your application.
 
-### 🤖 **AI Integration (Perplexity Sonar API)**
-- **Natural Language Queries**: Ask questions about dataset characteristics
-- **Full Dataset Context**: Complete data sent to AI for comprehensive analysis
-- **Interactive Chat Interface**: Conversational data exploration with message history
-- **Statistical Explanations**: AI explains calculations and methodologies
-- **Data Recommendations**: Intelligent cleaning and analysis suggestions
-- **Error Handling**: Robust API management with fallbacks
-- **Model Selection**: Configurable Sonar vs Sonar-Pro model options
+Edit this project locally using your preferred IDE or via GitHub.
 
-### 📈 **Comprehensive Visualization & Reporting**
-- **Quality Dashboard**: Real-time quality metrics with interactive gauges
-- **Before/After Comparison**: Side-by-side data comparison tables
-- **Interactive Data Tables**: Sortable, filterable data display with pagination
-- **Statistical Charts**: Distribution and summary charts using Recharts
-- **Progress Indicators**: Real-time operation progress with loading states
-- **Export Functionality**: CSV, PDF, HTML export options
-- **Cleaning Action Logs**: Detailed operation history with timestamps
-- **Audit Trails**: Complete workflow documentation
+**Use your preferred IDE**
 
-### 🎨 **Professional User Interface & Experience**
-- **Responsive Design**: Mobile-friendly responsive layout with Tailwind CSS
-- **Modern UI Components**: Professional, intuitive interface with micro-interactions
-- **Drag-and-Drop Interface**: Interactive element manipulation
-- **Real-time Feedback**: Immediate user feedback and status updates
-- **Loading States**: Clear operation status indicators
-- **Error Messages**: Helpful error communication and recovery suggestions
-- **Accessibility Features**: ARIA attributes and screen reader compatibility
-- **Keyboard Navigation**: Full keyboard accessibility support
+If you want to work locally using your own IDE, you can clone this repo and push changes.
 
-## Setup
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm or yarn
+Follow these steps:
 
-### Installation
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-### API Configuration (for Chat Feature)
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
 
-To use the AI chat assistant, you need to configure the Perplexity API:
+# Step 3: Install the necessary dependencies.
+npm i
 
-1. Get your API key from [Perplexity AI](https://www.perplexity.ai/)
-2. Create a `.env` file in the root directory:
-   ```bash
-   VITE_PPLX_API_KEY=pplx-your_actual_api_key_here
-   VITE_PPLX_MODEL=sonar  # or 'sonar-pro' for deeper reasoning
-   ```
-
-### Running the Application
-```bash
+# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`
+**Edit a file directly in GitHub**
 
-## Usage
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
-### **Complete Workflow**
+**Use GitHub Codespaces**
 
-1. **Upload Data**: 
-   - Drag-and-drop or browse for CSV, XLSX, XLS files (up to 50MB)
-   - Automatic file validation and progress tracking
-   - Real-time error handling and recovery
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-2. **Data Analysis**: 
-   - Automatic data profiling with quality metrics
-   - Issue detection (missing values, duplicates, outliers, inconsistencies)
-   - Interactive quality dashboard with detailed statistics
+## What technologies are used for this project?
 
-3. **Schema Mapping** (Optional):
-   - Upload JSON schema or use sample templates
-   - Drag-and-drop column mapping with intelligent suggestions
-   - Confidence scoring and mapping validation
+This project is built with:
 
-4. **Survey Weighting** (Optional):
-   - Select weight variable and type (design, post-stratification, raking)
-   - Weight statistics analysis and validation
-   - Advanced normalization and trimming options
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
-5. **Data Validation**:
-   - Rule-based validation with custom rule builder
-   - Skip pattern validation for survey logic
-   - Range checks and format validation
+## How can I deploy this project?
 
-6. **Data Cleaning**:
-   - Configure cleaning options (missing values, duplicates, outliers)
-   - Apply cleaning rules with detailed action logging
-   - Before/after comparison and impact analysis
+Use your preferred deployment method (Vercel, Netlify, or self-host) — build with `npm run build` and deploy the `dist` folder.
 
-7. **AI Data Exploration**:
-   - Natural language queries about your dataset
-   - Full dataset context for comprehensive analysis
-   - Interactive chat interface with conversation history
+To connect a custom domain, follow your chosen provider's instructions.
 
-8. **Statistical Estimation**:
-   - Calculate weighted/unweighted means, totals, proportions
-   - Generate confidence intervals and margin of error
-   - Professional survey methodology with design effects
+## Supabase integration
 
-9. **Reporting & Export**:
-   - Comprehensive cleaning reports with audit trails
-   - Export cleaned data (CSV) and statistical results
-   - Professional documentation and workflow logs
+This project can connect to a Supabase project. Create a file called `.env.local` at the repository root and add the following variables (do NOT commit this file):
 
-## Technology Stack
+VITE_SUPABASE_URL="https://<your-project>.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="<your-publishable-key>"
 
-### **Core Framework & Build Tools**
-- **React 18.3.1**: Modern React with concurrent features and hooks
-- **TypeScript 5.5.3**: Complete type safety across entire codebase
-- **Vite 5.4.2**: Fast build tool with optimized development and production builds
-- **Tailwind CSS 3.4.1**: Utility-first CSS framework with custom design system
+If you need the project id for reference you can set it too (not required by the client lib):
+VITE_SUPABASE_PROJECT_ID="<project-id>"
 
-### **Data Processing Libraries**
-- **Papa Parse 5.5.3**: CSV parsing with streaming and error handling
-- **XLSX 0.18.5**: Excel file processing (.xlsx, .xls) with multiple sheet support
-- **Lodash 4.17.21**: Utility functions for data manipulation and analysis
-- **D3 7.9.0**: Statistical calculations and data analysis algorithms
+After adding the variables, install the Supabase client and run the dev server:
 
-### **UI Components & Interactions**
-- **Lucide React 0.344.0**: Modern icon library with 50+ icons
-- **React Beautiful DnD 13.1.1**: Drag-and-drop functionality for schema mapping
-- **Recharts 3.1.2**: Data visualization and charting library
-- **HTML2Canvas 1.4.1 & jsPDF 3.0.1**: Report generation and export capabilities
+1. npm install @supabase/supabase-js
+2. npm run dev
 
-### **Custom Processing Engines**
-- **DataParser**: Multi-format file parsing (CSV, Excel) with error handling
-- **DataProfiler**: Statistical analysis, profiling, and quality assessment
-- **DataCleaner**: Automated cleaning algorithms with configurable rules
-- **SchemaMapper**: Intelligent column mapping with similarity algorithms
-- **SurveyEstimator**: Professional statistical estimation with variance methods
-- **SurveyValidator**: Rule-based validation engine with skip pattern support
-
-### **Development & Quality Tools**
-- **ESLint 9.9.1**: Code quality and consistency enforcement
-- **TypeScript ESLint 8.3.0**: TypeScript-specific linting rules
-- **PostCSS 8.4.35 & Autoprefixer 10.4.18**: CSS processing and vendor prefixing
-
-## Architecture
-
-### **Frontend-First Design**
-- **Client-Side Processing**: All data processing happens in the browser for privacy
-- **No Server Dependencies**: Eliminates data privacy concerns and infrastructure costs
-- **Real-Time Processing**: Immediate feedback without server round-trips
-- **Modular Architecture**: Component-based design with clear separation of concerns
-
-### **Performance Characteristics**
-- **Dataset Scalability**: Optimized for datasets up to 100,000+ rows
-- **Memory Management**: Efficient processing with chunked operations
-- **Response Time**: Sub-2 second processing for most operations
-- **Browser Compatibility**: Modern browsers with ES2020+ support
-
-### **Security & Privacy**
-- **Complete Data Privacy**: No data leaves the user's browser
-- **Local Processing**: All analysis performed client-side
-- **API Security**: Only metadata sent to AI services, not raw data
-- **Input Validation**: Comprehensive validation at every processing step
-
-## License
-
-MIT License
+The app will attempt to read from the tables: `customers`, `products`, `bills`, `expenses`, and `bill_items`. If Supabase is not configured the app falls back to local mock data.
